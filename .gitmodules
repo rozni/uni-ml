@@ -1,0 +1,3 @@
+[submodule "Cognitive_Systems_for_Health_Technology_Applications/Case_2/retinopathy-dataset"]
+	path = Cognitive_Systems_for_Health_Technology_Applications/Case_2/retinopathy-dataset
+	url = https://github.com/Nomikxyz/retinopathy-dataset.git
