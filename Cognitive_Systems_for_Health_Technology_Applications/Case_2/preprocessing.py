@@ -200,3 +200,73 @@ def process_img_files(
         end_time = time.time()
         print('Total elapsed time (s):', end_time - start_time)
         print(f'DONE! :) ({time.ctime(end_time)})')
+
+
+@_export
+def equalize(img, use_clahe=False, clahe_clip_limit=2, clahe_tile_size=(2, 2)):
+    """
+    Wrapper to equalize histograms of all channels, optionally
+    using CLAHE (Contrast Limited Adaptive Histogram Equalization).
+
+    Note:
+     - changes `img` IN-PLACE
+     - the image tensor has to be a 3D tensor
+
+    returns -- passed and altered image
+    """
+
+    channels = img.shape[2]
+
+    if use_clahe:
+        clahe = cv.createCLAHE(
+            clipLimit=clahe_clip_limit,
+            tileGridSize=clahe_tile_size
+        )
+
+        for i in range(channels):
+            img[..., i] = clahe.apply(img[..., i])
+    else:
+        for i in range(channels):
+            img[..., i] = cv.equalizeHist(img[..., i])
+
+    return img
+
+
+@_export
+def mask_eye(img, gray_level, frac_visible=0.9):
+    """
+    Replaces the outside of the eye with `gray_level` using
+    a circular mask with `frac_visible`*max(width,height)
+    diameter centered in the middle of the image.
+
+    returns -- new image
+    """
+    h, w = img.shape[:2]
+
+    circle = np.zeros_like(img)
+    cv.circle(
+        img=circle,
+        center=(w//2, h//2),
+        radius=int(frac_visible*max(h, w)/2),
+        color=(img.shape[2:] and (1, 1, 1)) or 1,
+        thickness=-1,
+        lineType=cv.LINE_8,
+        shift=0
+    )
+
+    return img*circle + gray_level*(1 - circle)
+
+
+@_export
+def remove_average_color(img):
+    """
+    A preprocessing step inspired by the winner of the Kaggle
+    Diabetic Retinopathy Detection 2015 competition - Benjamin Graham.
+
+    https://www.kaggle.com/c/diabetic-retinopathy-detection/discussion/15801
+    """
+    return cv.addWeighted(
+        img, 4,
+        cv.GaussianBlur(img, (0,0), max(img.shape)/30), -4,
+        128
+    )
