@@ -270,3 +270,58 @@ def remove_average_color(img):
         cv.GaussianBlur(img, (0,0), max(img.shape)/30), -4,
         128
     )
+
+
+# a dummy namespace, wanted to keep this as a single file
+# keep the class private, export only its instance later as a poor man's singleton
+class Common:
+    """
+    Commonly used preprocessing sequences bundeled
+
+    About names:
+     - X_mask - masks the eye with X level of gray [mask_eye]
+     - pad - pads the image to square [pad_to_square]
+    """
+
+
+    @staticmethod
+    def mask_pad(img, gray_level=0):
+        img = mask_eye(img, gray_level)
+        img = pad_to_square(img, (gray_level, gray_level, gray_level))
+        return img
+
+
+    @staticmethod
+    def equalize_0_mask_pad(img):
+        return Common.mask_pad(equalize(img), 0)
+
+    @staticmethod
+    def equalize_128_mask_pad(img):
+        return Common.mask_pad(equalize(img), 128)
+
+
+    @staticmethod
+    def clahe_0_mask_pad(img, clahe_clip_limit=2, clahe_tile_size=(2, 2)):
+        img = equalize(img, True, clahe_clip_limit, clahe_tile_size)
+        return Common.mask_pad(img, 0)
+
+    @staticmethod
+    def clahe_128_mask_pad(img, clahe_clip_limit=2, clahe_tile_size=(2, 2)):
+        img = equalize(img, True, clahe_clip_limit, clahe_tile_size)
+        return Common.mask_pad(img, 128)
+
+
+    @staticmethod
+    def graham_128_mask_pad(img):
+        img = remove_average_color(img)
+        return Common.mask_pad(img, 128)
+
+    @staticmethod
+    def graham_avg_mask_pad(img):
+        img = remove_average_color(img)
+        avg = int(img.mean())
+        return Common.mask_pad(img, avg)
+
+
+common = Common()
+__all__.append('common')
