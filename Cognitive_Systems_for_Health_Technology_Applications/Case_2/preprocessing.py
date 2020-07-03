@@ -2,7 +2,7 @@
 
 __all__ = []
 
-from multiprocessing.dummy import Pool as ThreadPool
+from multiprocessing import Pool
 
 import os
 import time
@@ -114,10 +114,23 @@ def image_resize(img, width, height, keep_aspect_ratio=False, interpolation=cv.I
     return resized
 
 
+def process_img(ii):
+    path_in, path_out = ii
+    img = cv.imread(path_in)
+    img = process(img)
+
+    success = cv.imwrite(path_out, img)
+
+    if not success:
+        new_dir = os.path.dirname(path_out)
+        os.makedirs(new_dir, exist_ok=True)
+
+        success = cv.imwrite(path_out, img)
+        if not success:
+            print(path_in, 'to', path_out, 'failed')
+
 @_export
 def process_img_files(
-        src_dir,
-        dst_dir,
         img_names,
         dst_names,
         process,
@@ -141,30 +154,13 @@ def process_img_files(
     >>> process_img_files('','', 'eye.jpg', 'eye.png', to_grayscale)
     """
 
-    def process_img(img_in, img_out):
-        path_in = os.path.join(src_dir, img_in)
-        path_out = os.path.join(dst_dir, img_out)
-
-        img = cv.imread(path_in)
-        img = process(img)
-
-        success = cv.imwrite(path_out, img)
-
-        if not success:
-            new_dir = os.path.dirname(path_out)
-            os.makedirs(new_dir, exist_ok=True)
-
-            success = cv.imwrite(path_out, img)
-            if not success:
-                print(path_in, 'to', path_out, 'failed')
-
-    with ThreadPool() as pool:
+    with Pool() as pool:
         start_time = time.time()
         print('Started:', time.ctime(start_time))
 
         # interruption in Jupyter misbehaves for starmap
         # but this lazy approach works + can show the progress
-        it = pool.imap(lambda ii: process_img(*ii), zip(img_names, dst_names))
+        it = pool.imap(process_img, zip(img_names, dst_names))
 
         try:
             num_images = len(img_names)
@@ -325,3 +321,30 @@ class Common:
 
 common = Common()
 __all__.append('common')
+
+if __name__=='__main__':
+    import PIL
+    from PIL import Image, ImageOps
+    import pandas as pd
+
+    import os
+
+    os.chdir('/Share/dr/orig/')
+    df = pd.read_csv('test_labels.csv')
+    df['src_name'] = 'test/'+df.src_name
+    df['dst_name'] = 'test_500/'+df.src_name
+
+    @_export
+    def process(img):
+        try:
+            img = Image.fromarray(img)
+            img = ImageOps.autocontrast(img)
+            img = np.asarray(img)
+            img = crop_eye(img)
+            img = image_resize(img, 500, 500, True)
+            img = common.clahe_128_mask_pad(img)
+        except:
+            img = np.zeros((500,500,3))
+        return img
+
+    process_img_files(img_names=df.src_name, dst_names=df.dst_name, process=process)
